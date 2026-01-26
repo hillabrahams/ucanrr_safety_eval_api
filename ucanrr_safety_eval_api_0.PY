@@ -17,10 +17,6 @@ It returns:
 Requires:
     pip install fastapi uvicorn "openai>=1.0.0" pydantic
 
-Run:
-    export OPENAI_API_KEY="***REMOVED_API_KEY***"
-    uvicorn main:app --reload --DON'T USE
-    uvicorn ucanrr_safety_eval_api:app --host 0.0.0.0 --port 3000 --reload
 """
 
 import json
@@ -34,9 +30,6 @@ from openai import OpenAI
 
 # ---------- OpenAI client ----------
 
-# Make sure OPENAI_API_KEY is set in your environment - done
-#client = OpenAI()
-#client = OpenAI(api_key="***REMOVED_API_KEY***")
 
 # Choose your model (you can swap to gpt-4.1, gpt-4o, etc.)
 OPENAI_MODEL = "gpt-5.1"

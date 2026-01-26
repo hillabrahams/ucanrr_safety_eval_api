@@ -36,7 +36,7 @@ from openai import OpenAI
 
 # Make sure OPENAI_API_KEY is set in your environment - done
 #client = OpenAI()
-client = OpenAI(api_key="***REMOVED_API_KEY***")
+#client = OpenAI(api_key="***REMOVED_API_KEY***")
 
 # Choose your model (you can swap to gpt-4.1, gpt-4o, etc.)
 OPENAI_MODEL = "gpt-5.1"

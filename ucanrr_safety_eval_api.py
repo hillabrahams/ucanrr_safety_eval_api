@@ -32,13 +32,17 @@ from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel, Field
 from openai import OpenAI
 
+
+
 # ---------- OpenAI client ----------
 
 # ✅ Use environment variable. Do NOT hardcode keys in code.
-client = OpenAI(api_key=os.environ.get("OPENAI_API_KEY"))
+#client = OpenAI(api_key=os.environ.get("OPENAI_API_KEY")) 
+client = OpenAI(api_key="***REMOVED_API_KEY***")
 
 # Choose your model (you can swap to gpt-4.1, gpt-4o, etc.)
-OPENAI_MODEL = "gpt-5.1"
+#OPENAI_MODEL = "gpt-5.1"
+OPENAI_MODEL = "gpt-4o"
 
 
 # ---------- Pydantic models ----------
@@ -367,6 +371,7 @@ async def analyze_entry(payload: JournalEntryRequest):
             ],
             response_format={"type": "json_schema", "json_schema": SAFETY_JSON_SCHEMA},
             safety_identifier=payload.user_hash if payload.user_hash else None,
+            store=False,
             temperature=0,
         )
 

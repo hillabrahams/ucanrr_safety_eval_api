@@ -29,6 +29,7 @@ from typing import Any, Dict, Optional
 
 from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
+from flask.cli import load_dotenv
 from pydantic import BaseModel, Field
 from openai import OpenAI
 
@@ -37,9 +38,11 @@ from openai import OpenAI
 # ---------- OpenAI client ----------
 
 # ✅ Use environment variable. Do NOT hardcode keys in code.
-client = OpenAI(api_key=os.environ.get("OPENAI_API_KEY"))
-
-# Choose your model (you can swap to gpt-4.1, gpt-4o, etc.)
+load_dotenv() # Load .env file
+#client = OpenAI(api_key=os.environ.get("OPENAI_API_KEY"))
+#client = OpenAI(api_key="***REMOVED_API_KEY***")
+client = OpenAI(api_key="***REMOVED_API_KEY***") 
+#Choose your model (you can swap to gpt-4.1, gpt-4o, etc.)
 #OPENAI_MODEL = "gpt-5.1"
 OPENAI_MODEL = "gpt-4o"
 
@@ -344,6 +347,8 @@ app.add_middleware(
     CORSMiddleware,
     allow_origins=[
         "https://ucanrr.com",
+        "https://www.ucanrr.com",
+        "https://ucanrr.ngrok-free.dev",
         "http://localhost:3000",
         "http://127.0.0.1:3000",
     ],

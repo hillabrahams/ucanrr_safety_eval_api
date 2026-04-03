@@ -1,0 +1,21 @@
+# SASI SDK configuration for UCANRR Safety Eval API
+# Copy sasi_config.example.yaml from the SASI SDK / partner repo and fill in below.
+# This file is loaded at startup via an absolute path relative to ucanrr_sasi_safety_eval_api.py.
+
+# Example structure — replace with values from your SASI partner agreement:
+#
+# api_key: "${SASI_API_KEY}"          # or hardcode for dev only
+# environment: "production"           # "sandbox" | "production"
+# mode: "therapist"                   # deployment mode; matches SasiSession(mode=...)
+# timeout_seconds: 10
+#
+# llm_profile:
+#   provider: "anthropic"             # or "openai"
+#   model: "claude-sonnet-4-6"
+#
+# crisis_policy:
+#   fail_closed: true                 # block entry on SASI error (recommended)
+#
+# audit:
+#   log_envelope_ids: true
+#   log_policy_hash: true

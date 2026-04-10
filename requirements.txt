@@ -2,3 +2,7 @@ fastapi==0.104.1
 uvicorn==0.24.0
 pyodbc==5.0.1
 pydantic==2.5.0
+openai>=1.0.0
+pydantic
+python-dotenv
+opencensus-ext-azure

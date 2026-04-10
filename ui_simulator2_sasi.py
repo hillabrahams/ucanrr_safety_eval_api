@@ -13,16 +13,23 @@ Usage:
     python ui_simulator2_sasi.py --label ambiguous_monitor
     python ui_simulator2_sasi.py --csv path/to/file.csv
 
-Minimal curl proof (run while API is up, redact PII before sharing):
+CSV column layout (4 blocks — see docs/OUTPUT_COLUMNS.md for full reference):
+    Block 1  id + ucanrr_* / benchmark columns (from input CSV, not the API)
+    Block 2  in_*           request parameters echoed for traceability
+    Block 3  sasi_*         from SasiResult via assessment["sasi"]
+    Block 4  api_* / flag_* merged product response (OpenAI or SASI-derived)
+
+Minimal curl proof (run while API is up):
 
     curl -s -X POST http://localhost:3000/safety/analyze_entry \\
       -H "Content-Type: application/json" \\
       -d '{"entry_text": "I feel overwhelmed today.", "user_id": "curl-test-01"}' \\
       | python -m json.tool
 
-    Expected: JSON with a non-empty "sasi" key containing sasi_risk_level,
-    sasi_flag_crisis, etc.  If "sasi" is absent or all values are null/false,
-    check API stderr for the [SASI-EXPORT first-response] log line.
+    Expected: JSON with a non-empty "sasi" object containing sasi_risk_level,
+    sasi_flag_crisis, etc.  If "sasi" is absent on HTTP 200, check API stderr
+    for the [SASI first-response export] line — the wrong server module may be
+    running (should be ucanrr_sasi_safety_eval_api:app, not ucanrr_safety_eval_api:app).
 """
 
 import argparse
@@ -39,47 +46,65 @@ DEFAULT_CSV = "sasi_safety_test_data.csv"
 
 # ---------- Output columns ----------
 
-# Column authority reference (matches the POST /safety/analyze_entry pipeline):
-#
-#   SASI only         — columns that are always sourced from SasiResult,
-#                       regardless of whether OpenAI ran.
-#   OpenAI only       — columns that come from the LLM response; empty/None
-#                       when sasi_gate_blocked=TRUE (OpenAI was not called).
-#   SASI when blocked / OpenAI when passed
-#                     — columns whose author changes based on sasi_gate_blocked.
-#   Caller resolves   — both layers emit a value; no server-side reconciliation
-#                       exists. The UI must decide which takes precedence.
-#
-# Known divergence: when sasi_gate_blocked=FALSE, share_allowed (SASI) may be
-# TRUE while api_partner_share_policy (OpenAI) is "block".  Both are present in
-# the row so the discrepancy is visible.  No post-merge rule resolves it today.
+# Full column reference: docs/OUTPUT_COLUMNS.md
+# Authority tags used below:
+#   benchmark  = from input CSV (not recomputed by API)
+#   in         = request param echoed
+#   sasi       = from SasiResult via assessment["sasi"]; present in every 200
+#   api-merged = SASI when gate_blocked=TRUE, OpenAI when FALSE
+#   api-openai = OpenAI only; empty/None when sasi_gate_blocked=TRUE
 
 OUTPUT_FIELDS = [
-    # ── Input metadata (from CSV, not the API) ───────────────────────────────
-    "id",
-    "ucanrr_score",
-    "ucanrr_band",
-    "score_bucket",
-    "primary_label",
-    "risk_level",
-    "tags",
-    "addressed_to",
-    "style",
-    # ── SASI request params echoed for traceability ──────────────────────────
+    # ── Block 1: benchmark / input metadata ──────────────────────────────────
+    "id",               # benchmark
+    "ucanrr_score",     # benchmark
+    "ucanrr_band",      # benchmark
+    "score_bucket",     # benchmark
+    "primary_label",    # benchmark
+    "risk_level",       # benchmark  (pre-assigned; NOT the live SASI risk level)
+    "tags",             # benchmark
+    "addressed_to",     # benchmark
+    "style",            # benchmark
+
+    # ── Block 2: request parameters ──────────────────────────────────────────
     "in_user_id",
     "in_partner_id",
     "in_session_id",
     "in_share_requested",
-    # ── Risk tier/label ──────────────────────────────────────────────────────
-    # Authority: SASI when blocked / OpenAI when passed.
-    # When sasi_gate_blocked=TRUE: derived from map_sasi_to_ucanrr_tier().
-    # When sasi_gate_blocked=FALSE: taken directly from OpenAI structured output.
+
+    # ── Block 3: SASI fields ─────────────────────────────────────────────────
+    # All read from assessment["sasi"] — single stable path, always present.
+    # No OpenAI values appear in this block.
+    "sasi_risk_level",               # result.risk_level (enum → .name.lower())
+    "sasi_crisis_detected",          # result.is_crisis
+    "sasi_human_oversight_required", # result.human_oversight_required
+    "sasi_oversight_type",           # result.oversight_type (null if none)
+    "sasi_gate_blocked",             # True iff OpenAI call was skipped
+    "share_allowed",                 # SASI share-gate decision
+    "share_blocked_reason",          # null when share_allowed=True
+    "mandatory_reporting_flag",      # result.mandatory_reporting_flag
+    "mandatory_reporting_categories",# semicolon-joined list
+    "sasi_envelope_id",              # result.envelope.run_id
+    "policy_hash",                   # result.envelope.policy_hash
+    "sasi_envelope",                 # envelope JSON (no user text)
+    "sasi_flag_crisis",              # result.is_crisis
+    "sasi_flag_human_oversight",     # result.human_oversight_required
+    "sasi_flag_should_block",        # result.should_block
+    "sasi_flag_pii_detected",        # result.pii_detected
+    "sasi_flag_show_hotline",        # result.show_hotline
+    "sasi_flag_operator_crisis",     # result.operator_crisis
+    "sasi_flag_parent_alert",        # result.parent_alert_flag
+    "sasi_flag_human_review",        # result.human_review_flag
+    "sasi_flag_action_rationale",    # result.action_rationale
+    "sasi_flag_principle_triggered", # result.principle_triggered
+
+    # ── Block 4: API / merged product response ────────────────────────────────
+    # api_risk_tier / api_risk_label: api-merged (see authority table in AUDIT.md)
+    # All api_* / flag_* below: api-openai — empty when sasi_gate_blocked=TRUE
+    # api_partner_share_policy may diverge from share_allowed; no server-side
+    # reconciliation — see docs/SAFETY_PIPELINE_AUDIT.md.
     "api_risk_tier",
     "api_risk_label",
-    # ── UCANRR flags — OpenAI only ───────────────────────────────────────────
-    # Empty/None when sasi_gate_blocked=TRUE (OpenAI was not called).
-    # These are NOT overridden by SASI; if you need SASI's equivalent, see
-    # sasi_flag_crisis / sasi_flag_human_oversight below.
     "flag_suicidal_ideation",
     "flag_self_harm",
     "flag_other_harm",
@@ -90,10 +115,6 @@ OUTPUT_FIELDS = [
     "flag_weapon_access",
     "flag_child_safety",
     "flag_ambiguous_lethal_curiosity",
-    # ── UCANRR recommendations — OpenAI only ─────────────────────────────────
-    # Empty/None when sasi_gate_blocked=TRUE.
-    # api_partner_share_policy may diverge from share_allowed (SASI-owned);
-    # caller is responsible for resolving the conflict.
     "api_partner_share_policy",
     "api_therapist_share_policy",
     "api_show_crisis_banner",
@@ -102,47 +123,7 @@ OUTPUT_FIELDS = [
     "api_mark_as_urgent_for_therapist",
     "api_notes_for_therapist",
     "api_explanation",
-    # ── SASI gate outcomes — SASI only ───────────────────────────────────────
-    # All four are set from SasiResult in every response path.
-    "sasi_crisis_detected",           # result.is_crisis
-    "sasi_human_oversight_required",  # result.human_oversight_required
-    "sasi_oversight_type",            # result.oversight_type
-    "sasi_risk_level",                # result.risk_level (enum → string)
-    # TRUE iff is_crisis or human_oversight_required caused an early return
-    # before the OpenAI call.  Authoritatively set by the API; not recomputed
-    # here.
-    "sasi_gate_blocked",
-    # ── Share gate — SASI only ───────────────────────────────────────────────
-    # Determined by evaluate_share_gate() in ALL paths (blocked and passed).
-    # Checks: is_crisis → human_oversight_required → mandatory_reporting_flag.
-    # Does NOT incorporate OpenAI output.  See api_partner_share_policy for the
-    # OpenAI view when gate_blocked=FALSE.
-    "share_allowed",
-    "share_blocked_reason",
-    # ── Mandatory reporting — SASI only ──────────────────────────────────────
-    "mandatory_reporting_flag",
-    "mandatory_reporting_categories",
-    # ── SASI audit — SASI only ───────────────────────────────────────────────
-    "sasi_envelope_id",
-    "policy_hash",
-    # Envelope as JSON string (stable non-PII keys; raw user text stripped).
-    # Empty when result.envelope is None.
-    "sasi_envelope",
-    # ── SASI direct flags — SASI only ────────────────────────────────────────
-    # Mapped 1-to-1 from SasiResult attributes; present in every response path.
-    # sasi_flag_crisis mirrors sasi_crisis_detected (same source, kept separate
-    # for column-group readability).
-    "sasi_flag_crisis",           # result.is_crisis
-    "sasi_flag_human_oversight",  # result.human_oversight_required
-    "sasi_flag_should_block",     # result.should_block
-    "sasi_flag_pii_detected",     # result.pii_detected
-    "sasi_flag_show_hotline",     # result.show_hotline
-    "sasi_flag_operator_crisis",  # result.operator_crisis
-    # ── SASI ancillary flags — SASI only ─────────────────────────────────────
-    "sasi_flag_parent_alert",
-    "sasi_flag_human_review",
-    "sasi_flag_action_rationale",
-    "sasi_flag_principle_triggered",
+
     # ── Meta ─────────────────────────────────────────────────────────────────
     "api_error",
     "entry",

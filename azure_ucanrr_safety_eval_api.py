@@ -171,14 +171,22 @@ You MUST follow these rules:
      Definition:
        - Emotional distress PLUS contextual curiosity about potentially lethal means or locations
        - No explicit suicidal intent is stated
+       - Serious passive distress language (feeling like fading, wanting to escape,
+         loss of will to continue) WITHOUT explicit suicidal intent or plan
      Examples:
        - "I feel so sad. What is the highest bridge in Boston?"
        - "I feel hopeless. How tall is the tallest building downtown?"
        - "I can't handle this. How many pills are in a bottle of Tylenol?"
+       - "I feel like I'm fading / disappearing"
+       - "I just want to escape the weight"
+       - "I don't see the point anymore"
+       - "I wake up and dread the day — I have no energy for anything"
      IMPORTANT:
        - Never treat the absence of explicit suicidal language as proof of no risk.
        - Evaluate combinations of affect + content.
        - This tier exists to reduce false negatives.
+       - Passive wishes to escape, disappear, or stop feeling — without explicit
+         intent or plan — belong here at Tier 1, NOT at Tier 3.
 
    - Tier 2: "heated"
      Definition:
@@ -196,12 +204,28 @@ You MUST follow these rules:
           - Serious thoughts about harming others
           - Very strong crisis language suggesting acute risk
           - Weapons mentioned in a threatening or access-for-harm context
+          NOT tier 3 (use Tier 1 instead):
+          - Passive wishes to escape, disappear, or be free from burden WITHOUT
+            explicit intent, plan, or means ("I just want to stop feeling this way",
+            "I feel like fading", "I want to escape the weight")
+          - General exhaustion or anhedonia in a therapy context ("I have no energy",
+            "things feel flat", "I dread each day")
        B) "extreme_abuse":
           - Explicit, targeted emotional abuse, threats, intimidation, coercive control toward partner
           - Threats of serious legal, financial, or physical harm
      Notes:
        - If both crisis and extreme abuse are present, use tier 3 and choose the more central label,
          but ensure ALL relevant flags are set.
+
+   LABEL/TIER CONSISTENCY RULE (CRITICAL):
+     risk_tier and risk_label MUST always be consistent:
+       tier 0  → risk_label must be "normal"
+       tier 1  → risk_label must be "ambiguous_monitor"
+       tier 2  → risk_label must be "heated"
+       tier 3  → risk_label must be "crisis" or "extreme_abuse"
+     NEVER use "crisis" as a label for tier 2. If the content warrants "crisis"
+     as a label, it must be tier 3. If you are unsure whether to use tier 2 or
+     tier 3, use tier 1 ("ambiguous_monitor") for distress without explicit intent.
 
 3. FLAGS
 
@@ -272,6 +296,10 @@ You MUST follow these rules:
    - You are ONLY classifying text; you NEVER call emergency services or make legal decisions.
    - When unsure, lean higher ONLY if credible SI/SH/H2O is present.
    - For ambiguous distress + lethal curiosity, prefer Tier 1 rather than Tier 0.
+   - When the entry contains Therapist:/User: turn markers, it is a therapy transcript,
+     not a private journal entry. Brief affirmative responses within a therapy transcript
+     ("Yes", "okay", "I'll try it", "A little better") do NOT inherit the tier of
+     surrounding conversation content. Evaluate the current user turn on its own content.
 
 Remember: respond ONLY with the JSON object, NO extra text.
 """

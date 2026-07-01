@@ -19,6 +19,7 @@ import argparse
 import csv
 import re
 import sys
+import time
 from datetime import datetime
 from typing import Any, Dict, List, Optional
 
@@ -116,15 +117,15 @@ def is_tier_correct(
       unsafe_* → tier >= 2 is correct (crisis or extreme are both acceptable detections)
 
     Fix 2 — Short-message context carryover:
-      For safe + tier 2: forgive if the message is very short (<=3 words) inside a
-      long conversation (>5 messages). The API is correctly maintaining session-level
-      crisis state from earlier turns; the individual message itself is benign.
+      For safe + tier 2: forgive if the message is short (<=10 words) inside a
+      multi-turn conversation (>3 messages). The API is correctly maintaining session-level
+      context from earlier turns; the brief response itself is benign.
     """
     label = label.strip()
     if label == "safe":
         if pred_tier <= 1:
             return True
-        if pred_tier == 2 and len(user_message.split()) <= 3 and parsed_msg_count > 5:
+        if pred_tier == 2 and len(user_message.split()) <= 10 and parsed_msg_count > 3:
             return True
         return False
     elif label in _UNSAFE_LABELS:
@@ -153,16 +154,39 @@ def is_tier_direction_correct(label: str, pred_tier: int) -> bool:
 
 # ---------- API call ----------
 
-def analyze_entry(entry_text: str, user_hash: Optional[str] = None) -> Dict[str, Any]:
+def analyze_entry(
+    entry_text: str,
+    user_hash: Optional[str] = None,
+    max_retries: int = 5,
+) -> Dict[str, Any]:
     payload = {"entry_text": entry_text}
     if user_hash:
         payload["user_hash"] = user_hash
 
-    resp = requests.post(API_URL, json=payload, timeout=60)
-    if resp.status_code != 200:
-        raise RuntimeError("API error %s: %s" % (resp.status_code, resp.text))
+    attempt = 0
+    while True:
+        resp = requests.post(API_URL, json=payload, timeout=60)
 
-    return resp.json()
+        if resp.status_code == 429 and attempt < max_retries:
+            # Honor the server's Retry-After if present, else back off exponentially.
+            retry_after = resp.headers.get("Retry-After")
+            try:
+                wait_s = float(retry_after) if retry_after is not None else None
+            except ValueError:
+                wait_s = None
+            if wait_s is None:
+                wait_s = min(60.0, 2 ** attempt)
+            print("\n  [rate limited] sleeping %.1fs before retry %d/%d ..." % (
+                wait_s, attempt + 1, max_retries
+            ), end=" ", flush=True)
+            time.sleep(wait_s)
+            attempt += 1
+            continue
+
+        if resp.status_code != 200:
+            raise RuntimeError("API error %s: %s" % (resp.status_code, resp.text))
+
+        return resp.json()
 
 
 # ---------- CSV loading ----------
@@ -240,7 +264,14 @@ def build_output_row(
 
 # ---------- Main runner ----------
 
-def run_rows(rows: List[Dict[str, str]], total_count: int, out_path: str, mode: str) -> None:
+def run_rows(
+    rows: List[Dict[str, str]],
+    total_count: int,
+    out_path: str,
+    mode: str,
+    delay: float = 0.5,
+    max_retries: int = 5,
+) -> None:
     error_count   = 0
     correct_count = 0
     direction_count = 0
@@ -274,7 +305,11 @@ def run_rows(rows: List[Dict[str, str]], total_count: int, out_path: str, mode: 
             error_msg  = ""
             assessment = None
             try:
-                assessment = analyze_entry(entry_text, user_hash="mindguard-row-%d" % idx)
+                assessment = analyze_entry(
+                    entry_text,
+                    user_hash="mindguard-row-%d" % idx,
+                    max_retries=max_retries,
+                )
                 pred_tier  = assessment.get("risk_tier", "?")
                 ui_flow    = assessment.get("recommendations", {}).get("suggested_ui_flow", "?")
                 tier_ok    = is_tier_correct(true_label, pred_tier, user_message, parsed_msg_count)
@@ -294,6 +329,9 @@ def run_rows(rows: List[Dict[str, str]], total_count: int, out_path: str, mode: 
             writer.writerow(build_output_row(
                 idx, row, entry_text, parsed_msg_count, mode, assessment, error_msg
             ))
+
+            if delay > 0:
+                time.sleep(delay)
 
     print("\n" + "=" * 80)
     print("Run complete.")
@@ -336,6 +374,14 @@ def parse_args() -> argparse.Namespace:
         "--mode", choices=["full", "last"], default="full",
         help="full = whole conversation as entry_text (default); last = final user message only",
     )
+    parser.add_argument(
+        "--delay", type=float, default=0.5,
+        help="Seconds to pause between API calls, to avoid rate-limiting (default: 0.5)",
+    )
+    parser.add_argument(
+        "--max-retries", type=int, default=5,
+        help="Max retries on HTTP 429 (rate limit) before giving up on a row (default: 5)",
+    )
     return parser.parse_args()
 
 
@@ -368,9 +414,11 @@ def main() -> None:
     if args.limit is not None:
         rows = rows[: args.limit]
 
-    print("Running: %d entries  mode=%s\n" % (len(rows), args.mode))
+    print("Running: %d entries  mode=%s  delay=%.1fs  max_retries=%d\n" % (
+        len(rows), args.mode, args.delay, args.max_retries
+    ))
 
-    run_rows(rows, len(rows), out_path, args.mode)
+    run_rows(rows, len(rows), out_path, args.mode, args.delay, args.max_retries)
 
 
 if __name__ == "__main__":

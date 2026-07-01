@@ -190,12 +190,18 @@ You MUST follow these rules:
 
    - Tier 2: "heated"
      Definition:
-       - High emotional intensity, anger, blame, harsh language, or escalating conflict
+       - Interpersonal conflict: anger, blame, harsh language, shouting, or escalating argument
        - BUT no explicit self-harm / suicidal ideation / threats of harm
      Examples:
        - "I'm so angry I could scream"
        - "You never listen, I'm sick of this"
        - Swearing and name-calling WITHOUT threats or violence
+     NOT tier 2 — these belong at Tier 1:
+       - Emotional distress, hopelessness, despair, or passive escape wishes WITHOUT anger or conflict
+       - Anhedonia, numbness, exhaustion, or grief without an argument/fight context
+       - "I feel like fading", "I have no energy", "things feel flat" — no anger here → Tier 1
+     KEY: Tier 2 requires interpersonal conflict or anger. It is NOT a "mild crisis" tier.
+       If there is no argument or anger, do NOT use Tier 2, even if the distress sounds severe.
 
    - Tier 3: "crisis" OR "extreme_abuse"
      Definition (choose the best matching label, but tier remains 3):
@@ -216,6 +222,21 @@ You MUST follow these rules:
      Notes:
        - If both crisis and extreme abuse are present, use tier 3 and choose the more central label,
          but ensure ALL relevant flags are set.
+
+   DECISION CHECKLIST — apply in order, stop at first YES:
+     1. Explicit SI/SH ideation, or serious threat to harm another person?
+        → Tier 3 "crisis"
+     2. Targeted abuse, coercion, or threats of physical/financial/legal harm toward another?
+        → Tier 3 "extreme_abuse"
+     3. Interpersonal anger, shouting, insults, or heated argument present?
+        → Tier 2 "heated"
+        (If NO anger or conflict → skip Tier 2 entirely, do NOT use it)
+     4. Passive distress, hopelessness, escape wishes, lethal curiosity, or emotional numbness?
+        → Tier 1 "ambiguous_monitor"
+     5. None of the above → Tier 0 "normal"
+
+   If you feel content is "between Tier 1 and Tier 3", choose Tier 1 — NOT Tier 2.
+   Tier 2 is the anger/conflict tier, not the distress tier.
 
    LABEL/TIER CONSISTENCY RULE (CRITICAL):
      risk_tier and risk_label MUST always be consistent:
